@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Same or Different? - Shape Game</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; overscroll-behavior: none; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Chalkboard SE', 'Comic Sans MS', 'Segoe UI', Verdana, sans-serif;
+    background: linear-gradient(135deg, #FFF3D6 0%, #D6F0FF 50%, #FFE0EC 100%);
+    padding: 20px;
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+  .game-card {
+    background: #ffffff;
+    border-radius: 28px;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.15);
+    padding: 32px 28px;
+    width: 100%;
+    max-width: 560px;
+    text-align: center;
+  }
+  h1 {
+    font-size: 30px;
+    color: #4A3F8C;
+    margin: 0 0 4px;
+  }
+  .progress {
+    font-size: 16px;
+    color: #7a7a7a;
+    margin-bottom: 18px;
+  }
+  .score-badge {
+    display: inline-block;
+    background: #EEF3FF;
+    color: #3C3489;
+    font-weight: bold;
+    font-size: 15px;
+    padding: 6px 16px;
+    border-radius: 999px;
+    margin-bottom: 20px;
+  }
+  .shapes-row {
+    display: flex;
+    justify-content: center;
+    gap: 22px;
+    margin-bottom: 22px;
+    flex-wrap: wrap;
+  }
+  .shape-box {
+    width: 150px;
+    height: 150px;
+    background: #F7F8FA;
+    border: 3px solid #E4E7EE;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .feedback {
+    min-height: 30px;
+    font-size: 20px;
+    font-weight: bold;
+    margin-bottom: 18px;
+  }
+  .feedback.correct { color: #2E9E5B; }
+  .feedback.wrong { color: #D6432F; }
+  .buttons-row {
+    display: flex;
+    justify-content: center;
+    gap: 18px;
+    flex-wrap: wrap;
+  }
+  button {
+    font-family: inherit;
+    font-size: 20px;
+    font-weight: bold;
+    padding: 16px 30px;
+    min-height: 44px;
+    border-radius: 18px;
+    border: none;
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
+    transition: transform 0.1s ease;
+  }
+  button:active { transform: scale(0.95); }
+  .btn-same {
+    background: #DCEBFF;
+    color: #1A5FA8;
+  }
+  .btn-diff {
+    background: #FCE3EE;
+    color: #A8306E;
+  }
+  .btn-next {
+    background: #FFE9BE;
+    color: #8A5A00;
+    margin-top: 6px;
+  }
+  .btn-restart {
+    background: #DFF3E4;
+    color: #1F7A3F;
+    font-size: 22px;
+    padding: 18px 36px;
+  }
+  #resultsScreen { display: none; }
+  #resultsScreen .big-emoji-free {
+    font-size: 60px;
+    margin-bottom: 8px;
+  }
+  #resultsMessage {
+    font-size: 24px;
+    font-weight: bold;
+    color: #4A3F8C;
+    margin-bottom: 6px;
+  }
+  #resultsScore {
+    font-size: 40px;
+    font-weight: bold;
+    color: #2E9E5B;
+    margin-bottom: 24px;
+  }
+</style>
+</head>
+<body>
+
+<div class="game-card">
+  <h1>Same or Different?</h1>
+
+  <div id="gameScreen">
+    <div class="progress" id="progress">Question 1 of 5</div>
+    <div class="score-badge" id="scoreBadge">Score: 0 / 0</div>
+
+    <div class="shapes-row">
+      <div class="shape-box" id="shapeA"></div>
+      <div class="shape-box" id="shapeB"></div>
+    </div>
+
+    <div class="feedback" id="feedback"></div>
+
+    <div class="buttons-row" id="answerButtons">
+      <button class="btn-same" id="btnSame">Same</button>
+      <button class="btn-diff" id="btnDiff">Different</button>
+    </div>
+
+    <div class="buttons-row" id="nextWrap" style="display:none;">
+      <button class="btn-next" id="btnNext">Next</button>
+    </div>
+  </div>
+
+  <div id="resultsScreen">
+    <div class="big-emoji-free" id="resultsIcon">★</div>
+    <div id="resultsMessage"></div>
+    <div id="resultsScore"></div>
+    <button class="btn-restart" id="btnRestart">Play again</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  const TOTAL_QUESTIONS = 10;
+  const types = ['circle','square','triangle','pentagon','hexagon','star'];
+  const colors = ['#E24B4A','#378ADD','#639922','#EF9F27','#7F77DD','#1D9E75','#D4537E','#D85A30'];
+  const sizes = [0.75, 0.9, 1.05];
+
+  function regularPolygonPoints(sides, r, rotationDeg){
+    const pts = [];
+    for(let i = 0; i < sides; i++){
+      const angle = (Math.PI/180) * (rotationDeg + i*360/sides);
+      pts.push(`${(r*Math.cos(angle)).toFixed(1)},${(r*Math.sin(angle)).toFixed(1)}`);
+    }
+    return pts.join(' ');
+  }
+
+  function starPoints(outerR, innerR, rotationDeg){
+    const pts = [];
+    for(let i = 0; i < 10; i++){
+      const r = i % 2 === 0 ? outerR : innerR;
+      const angle = (Math.PI/180) * (rotationDeg + i*36);
+      pts.push(`${(r*Math.cos(angle)).toFixed(1)},${(r*Math.sin(angle)).toFixed(1)}`);
+    }
+    return pts.join(' ');
+  }
+
+  function shapeMarkup(shape){
+    const r = 55 * shape.size;
+    const color = shape.color;
+    let inner = '';
+    if(shape.type === 'circle') inner = `<circle cx="0" cy="0" r="${r}" fill="${color}"/>`;
+    else if(shape.type === 'square') inner = `<rect x="${(-r*0.85).toFixed(1)}" y="${(-r*0.85).toFixed(1)}" width="${(r*1.7).toFixed(1)}" height="${(r*1.7).toFixed(1)}" rx="10" fill="${color}"/>`;
+    else if(shape.type === 'triangle') inner = `<polygon points="${regularPolygonPoints(3, r, -90)}" fill="${color}"/>`;
+    else if(shape.type === 'pentagon') inner = `<polygon points="${regularPolygonPoints(5, r, -90)}" fill="${color}"/>`;
+    else if(shape.type === 'hexagon') inner = `<polygon points="${regularPolygonPoints(6, r, -90)}" fill="${color}"/>`;
+    else if(shape.type === 'star') inner = `<polygon points="${starPoints(r, r*0.45, -90)}" fill="${color}"/>`;
+    return `<svg width="140" height="140" viewBox="-80 -80 160 160"><g>${inner}</g></svg>`;
+  }
+
+  function randomShape(){
+    return {
+      type: types[Math.floor(Math.random()*types.length)],
+      color: colors[Math.floor(Math.random()*colors.length)],
+      size: sizes[Math.floor(Math.random()*sizes.length)]
+    };
+  }
+
+  function sameShape(a, b){
+    return a.type === b.type && a.color === b.color && a.size === b.size;
+  }
+
+  function makeRound(){
+    const a = randomShape();
+    const isSame = Math.random() < 0.5;
+    let b;
+    if(isSame){ b = {...a}; }
+    else { do { b = randomShape(); } while(sameShape(a, b)); }
+    return {a, b, isSame};
+  }
+
+  let rounds = [];
+  let questionIndex = 0;
+  let correctCount = 0;
+
+  const progressEl = document.getElementById('progress');
+  const scoreBadgeEl = document.getElementById('scoreBadge');
+  const shapeAEl = document.getElementById('shapeA');
+  const shapeBEl = document.getElementById('shapeB');
+  const feedbackEl = document.getElementById('feedback');
+  const answerButtonsEl = document.getElementById('answerButtons');
+  const nextWrapEl = document.getElementById('nextWrap');
+  const btnNextEl = document.getElementById('btnNext');
+  const gameScreenEl = document.getElementById('gameScreen');
+  const resultsScreenEl = document.getElementById('resultsScreen');
+
+  function startGame(){
+    rounds = [];
+    for(let i = 0; i < TOTAL_QUESTIONS; i++) rounds.push(makeRound());
+    questionIndex = 0;
+    correctCount = 0;
+    gameScreenEl.style.display = 'block';
+    resultsScreenEl.style.display = 'none';
+    showQuestion();
+  }
+
+  function showQuestion(){
+    const round = rounds[questionIndex];
+    progressEl.textContent = `Question ${questionIndex + 1} of ${TOTAL_QUESTIONS}`;
+    scoreBadgeEl.textContent = `Score: ${correctCount} / ${questionIndex}`;
+    shapeAEl.innerHTML = shapeMarkup(round.a);
+    shapeBEl.innerHTML = shapeMarkup(round.b);
+    feedbackEl.textContent = '';
+    feedbackEl.className = 'feedback';
+    answerButtonsEl.style.display = 'flex';
+    nextWrapEl.style.display = 'none';
+  }
+
+  function answer(userSame){
+    const round = rounds[questionIndex];
+    const correct = userSame === round.isSame;
+    if(correct) correctCount++;
+    scoreBadgeEl.textContent = `Score: ${correctCount} / ${questionIndex + 1}`;
+    feedbackEl.textContent = correct ? "That's right!" : "Not quite, look again!";
+    feedbackEl.className = 'feedback ' + (correct ? 'correct' : 'wrong');
+    answerButtonsEl.style.display = 'none';
+    nextWrapEl.style.display = 'flex';
+    btnNextEl.textContent = (questionIndex === TOTAL_QUESTIONS - 1) ? 'See results' : 'Next';
+  }
+
+  function nextStep(){
+    questionIndex++;
+    if(questionIndex >= TOTAL_QUESTIONS){
+      showResults();
+    } else {
+      showQuestion();
+    }
+  }
+
+  function showResults(){
+    gameScreenEl.style.display = 'none';
+    resultsScreenEl.style.display = 'block';
+    document.getElementById('resultsScore').textContent = `${correctCount} / ${TOTAL_QUESTIONS}`;
+    let message = 'Great effort!';
+    if(correctCount === TOTAL_QUESTIONS) message = 'Amazing! You got them all right!';
+    else if(correctCount >= TOTAL_QUESTIONS - 1) message = 'Wonderful job!';
+    else if(correctCount >= TOTAL_QUESTIONS / 2) message = 'Nice work!';
+    document.getElementById('resultsMessage').textContent = message;
+  }
+
+  document.getElementById('btnSame').addEventListener('click', () => answer(true));
+  document.getElementById('btnDiff').addEventListener('click', () => answer(false));
+  btnNextEl.addEventListener('click', nextStep);
+  document.getElementById('btnRestart').addEventListener('click', startGame);
+
+  startGame();
+})();
+</script>
+
+</body>
+</html>
